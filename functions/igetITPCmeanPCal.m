@@ -3,6 +3,7 @@ function igetITPCmeanPCal(homedir,Groups,whichtest)
 % each WT table is saved as *subject*_*condition*_*stimPresentation*_WT.mat
 % meaning we can call them in whatever order we want to save. Therefore
 % we'll work backwards, loop through stim presentation, subject.
+addpath(genpath(homedir));
 
 % get subject list and variables
 if length(Groups) == 1
@@ -18,9 +19,9 @@ elseif length(Groups) == 2
     clear animals grp1sub
 end
 
-Condition = {'gapASSR_2' 'gapASSR_4' 'gapASSR_6' 'gapASSR_8'}; 
-%'Pupcall_1' 'ClickTrain_5' 'gapASSR_10' 'NoiseBurst_20' 'NoiseBurst_50' 'NoiseBurst_70'
-for iCond = 1:length(Condition)
+Condition = {'Pupcall_1' 'NoiseBurst_20' 'NoiseBurst_50'}; 
+%'gapASSR_2' 'gapASSR_4' 'gapASSR_6' 'gapASSR_8' 'ClickTrain_5' 'gapASSR_10' 'NoiseBurst_70'
+for iCond = 2:length(Condition)
 
     if matches(Condition{iCond},'Pupcall_1')
         load('PupTimes.mat','PupTimes')

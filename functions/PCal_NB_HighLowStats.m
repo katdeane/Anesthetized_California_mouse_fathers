@@ -203,33 +203,35 @@ for iLay = 1:length(layers)
     % exportgraphics(h,[Groups{1} 'v' Groups{2} '_' layers{iLay} '_NoiseBurst_HighLow.pdf'])
     close(h)
 
-    %% no more stalling, it's stats time
-    count = (iLay-1)*length(statfill)+1;
-    countto = count + length(statfill)-1;
-
-    PeakStats.Layer(count:countto) = repmat(layers{iLay},length(statfill),1);
-    PeakStats.stat(count:countto)  = statfill';
-
-    % S High
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1high.PeakAmp,sgl2high.PeakAmp,1,'both'); % right tail: group 1 bigger
-    PeakStats.SH(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % S Low
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1low.PeakAmp,sgl2low.PeakAmp,1,'both'); % right tail: group 1 bigger
-    PeakStats.SL(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Normalized High vs Low Parent group
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl2high_norm,sgl2low_norm,1,'both'); % right tail: group 1 bigger
-    PeakStats.SHL(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Averaged
-    % High
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1high.PeakAmp,avg2high.PeakAmp,1,'both'); % right tail: group 1 bigger
-    PeakStats.AH(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Low
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1low.PeakAmp,avg2low.PeakAmp,1,'both'); % right tail: group 1 bigger
-    PeakStats.AL(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
+    % save normalized data tables for R
+    cd(homedir); cd output; cd DataforStatsPMPVMP;
+    % VMP 
+    grp1Lay = [sgl1high; sgl1low]; 
+    % remove old data, not normalized
+    grp1Lay(:,[7 8 9]) = [];
+    % add new normalized data 
+    newTabCol = [sgl1high_norm; sgl1low_norm];
+    grp1Lay.("NormPeakAmp") = newTabCol;
+    
+    % PMP 
+    grp2Lay = [sgl2high; sgl2low]; 
+    % remove old data, not normalized
+    grp2Lay(:,[7 8 9]) = [];
+    % add new normalized data 
+    newTabCol = [sgl2high_norm; sgl2low_norm];
+    grp2Lay.("NormPeakAmp") = newTabCol;
+    
+    if iLay == 1
+        grp1T = grp1Lay;
+        grp2T = grp2Lay;
+    elseif iLay > 1 
+        grp1T = [grp1T; grp1Lay];
+        grp2T = [grp2T; grp2Lay];
+        if iLay == 6
+            writetable(grp1T,[Groups{1} '_NoiseBurst_HighLow.csv']);
+            writetable(grp2T,[Groups{2} '_NoiseBurst_HighLow.csv']);
+        end
+    end
     
 end
 

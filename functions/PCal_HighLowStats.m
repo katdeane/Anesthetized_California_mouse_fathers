@@ -22,22 +22,10 @@ grp2avg = readtable([Groups{2} '_Pupcall30_AVG_AVRECPeak.csv']);
 
 % set some stuff up
 layers = {'All','II','IV','Va','Vb','VI'};
-statfill = {'p' 'df' 'CD' 'mean1' 'mean2' 'sd1' 'sd2'};
 color11 = [15/255 63/255 111/255]; %indigo blue
 color12 = [24/255 102/255 180/255]; 
 color21 = [115/255 46/255 61/255]; % wine
 color22 = [160/255 64/255 85/255]; 
-
-% initiate a huge stats table for the lawls (for the stats)
-PeakStats = table('Size',[length(layers)*length(statfill) 25],'VariableTypes',...
-            {'string','string','double','double','double','double','double','double', ...
-            'double','double','double','double','double','double','double','double',...
-            'double','double','double','double','double','double','double','double','double'});
-
-% S = single, A = average, TH = thalamic, CO = cortical, CN = continue
-PeakStats.Properties.VariableNames = ["Layer","stat","SH1","SH2","SH3","SH4","SH5",...
-    "SL1","SL2","SL3","SL4","SL5","SPH","SPL","PHL",...
-    "AH1","AH2","AH3","AH4","AH5","AL1","AL2","AL3","AL4","AL5"];
 
 for iLay = 1:length(layers)
     % pull out current layer
@@ -417,92 +405,39 @@ for iLay = 1:length(layers)
     % exportgraphics(h,[Groups{1} 'v' Groups{2} '_' layers{iLay} '_PupCall_HighLow.pdf'])
     close(h)
 
-    %% no more stalling, it's stats time
-    count = (iLay-1)*length(statfill)+1;
-    countto = count + length(statfill)-1;
+    % save normalized data tables for R
+    cd(homedir); cd output; cd DataforStatsPMPVMP;
+    
+    %VMP
+    grp1Lay = array2table(repmat({'VMP'},600,1),VariableNames="Group");
+    anicol  = [repmat({'VMP02'},50,1); repmat({'VMP03'},50,1); repmat({'VMP04'},50,1);...
+        repmat({'VMP05'},50,1); repmat({'VMP06'},50,1); repmat({'VMP08'},50,1)];
+    grp1Lay.("Animal")      = [anicol; anicol];
+    grp1Lay.("Layer")       = repmat(layers(iLay),600,1);
+    grp1Lay.("trial")       = repmat((1:50)',12,1); % trials were stacked above, 1:50 per subject, split for calls
+    grp1Lay.("volume")      = [repmat({'Low'},300,1); repmat({'High'},300,1)];
+    grp1Lay.("NormPeakAmp") = [sgl1lr; sgl1hr];
+    
+    grp2Lay = array2table(repmat({'PMP'},800,1),VariableNames="Group");
+    anicol  = [repmat({'PMP01'},50,1); repmat({'PMP02'},50,1); repmat({'PMP03'},50,1);...
+        repmat({'PMP04'},50,1); repmat({'PMP06'},50,1); repmat({'PMP07'},50,1);...
+        repmat({'PMP08'},50,1); repmat({'PMP09'},50,1)];
+    grp2Lay.("Animal")      = [anicol; anicol];
+    grp2Lay.("Layer")       = repmat(layers(iLay),800,1);
+    grp2Lay.("trial")       = repmat((1:50)',16,1); % trials were stacked above, 1:50 per subject, split for calls
+    grp2Lay.("volume")      = [repmat({'Low'},400,1); repmat({'High'},400,1)];
+    grp2Lay.("NormPeakAmp") = [sgl2lr; sgl2hr];
 
-    PeakStats.Layer(count:countto) = repmat(layers{iLay},length(statfill),1);
-    PeakStats.stat(count:countto)  = statfill';
-
-    % S High
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1h_1,sgl2h_1,1,'both'); % right tail: group 1 bigger
-    PeakStats.SH1(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 2
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1h_2,sgl2h_2,1,'both'); % left, group 2 is bigger
-    PeakStats.SH2(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 3
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1h_3,sgl2h_3,1,'both');
-    PeakStats.SH3(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 4 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1h_4,sgl2h_4,1,'both');
-    PeakStats.SH4(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 5 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1h_5,sgl2h_5,1,'both');
-    PeakStats.SH5(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % S Low
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1l_1,sgl2l_1,1,'both'); % right tail: group 1 bigger
-    PeakStats.SL1(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 2
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1l_2,sgl2l_2,1,'both'); % left, group 2 is bigger
-    PeakStats.SL2(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 3
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1l_3,sgl2l_3,1,'both');
-    PeakStats.SL3(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 4 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1l_4,sgl2l_4,1,'both');
-    PeakStats.SL4(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 5 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1l_5,sgl2l_5,1,'both');
-    PeakStats.SL5(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % S High normalized to average virgin group and then pooled
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1hr,sgl2hr,1,'both'); % right tail: group 1 bigger
-    PeakStats.SPH(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % S Low normalized to average virgin group and then pooled
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl1lr,sgl2lr,1,'both'); % right tail: group 1 bigger
-    PeakStats.SPL(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Normalized High vs Low Parent group
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(sgl2hr,sgl2lr,1,'both'); % right tail: group 1 bigger
-    PeakStats.PHL(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Averaged
-    % High
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_high(1)),avg2stk(:,call_high(1)),1,'both'); % right tail: group 1 bigger
-    PeakStats.AH1(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 2
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_high(2)),avg2stk(:,call_high(2)),1,'both'); % left, group 2 is bigger
-    PeakStats.AH2(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 3
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_high(3)),avg2stk(:,call_high(3)),1,'both');
-    PeakStats.AH3(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 4 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_high(4)),avg2stk(:,call_high(4)),1,'both');
-    PeakStats.AH4(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 5
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_high(5)),avg2stk(:,call_high(5)),1,'both');
-    PeakStats.AH5(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-
-    % Low
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_low(1)),avg2stk(:,call_low(1)),1,'both'); % right tail: group 1 bigger
-    PeakStats.AL1(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 2
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_low(2)),avg2stk(:,call_low(2)),1,'both'); % left, group 2 is bigger
-    PeakStats.AL2(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 3
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_low(3)),avg2stk(:,call_low(3)),1,'both');
-    PeakStats.AL3(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 4 
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_low(4)),avg2stk(:,call_low(4)),1,'both');
-    PeakStats.AL4(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
-    % 5
-    [P,DF,CD,mean1,mean2,sd1,sd2] = myttest2(avg1stk(:,call_low(5)),avg2stk(:,call_low(5)),1,'both');
-    PeakStats.AL5(count:countto)  = [P;DF;CD;mean1;mean2;sd1;sd2];
+    if iLay == 1
+        grp1T = grp1Lay;
+        grp2T = grp2Lay;
+    elseif iLay > 1 
+        grp1T = [grp1T; grp1Lay];
+        grp2T = [grp2T; grp2Lay];
+        if iLay == 6
+            writetable(grp1T,[Groups{1} '_PupCall_HighLow.csv']);
+            writetable(grp2T,[Groups{2} '_PupCall_HighLow.csv']);
+        end
+    end
     
 end
-
-cd(homedir); cd output; cd TracePeaks
-writetable(PeakStats,[Groups{1} 'v' Groups{2} '_PupCall_HighLow_Stats.csv']);
-cd(homedir)

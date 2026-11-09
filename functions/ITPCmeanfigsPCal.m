@@ -2,7 +2,7 @@
 function ITPCmeanfigsPCal(homedir)
 
 
-Condition = {'Pupcall_1' 'ClickTrain_5' 'gapASSR_10'};
+Condition = {'Pupcall_1' 'NoiseBurst_20' 'NoiseBurst_50'};
 layers = {'II' 'IV' 'Va' 'Vb' 'VI'};
 bands  = {'Theta' 'Alpha' 'Beta' 'GammaLow' 'GammaHigh'};
 

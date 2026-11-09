@@ -1,0 +1,978 @@
+---
+title: "PCal Peak Data Analysis"
+subtitle: "Round 2"
+author: "Michael A. Erickson"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    df_print: default # paged
+    toc: yes
+    toc_float: yes
+  tufte::tufte_html:
+    toc: yes
+  tufte::tufte_handout:
+    toc: yes
+    citation_package: natbib
+    extra_dependencies:
+    - marginfix
+    - longtable
+    keep_tex: yes
+    latex_engine: xelatex
+  pdf_document:
+    toc: yes
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+- \usepackage{xcolor}
+- \usepackage{marginfix}
+- \setcounter{secnumdepth}{0}
+---
+
+
+
+```{r setup, include=FALSE}
+## options(width=60, linewidth=60, scipen=10)
+options(scipen=10)
+knitr::opts_chunk$set(fig.path="PCal-figures/Peak-",
+               collapse=TRUE, tidy=FALSE,
+               tidy.opts=list(width.cutoff=65)) 
+
+library(afex)
+library(gt)
+library(qvalue)
+library(knitr)
+library(kableExtra)
+## library(stargazer)
+## library(googlesheets)
+library(car)
+library(tidyverse)
+library(gridExtra)
+## library(lubridate)
+## library(haven)
+## library(labelled)
+library(scales)
+## library(grid)
+library(readxl)
+## library(openxlsx)
+library(psych)
+## library(pzfx)
+## library(patchwork)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(performance)
+library(RColorBrewer)
+library(here)
+
+mar.tab <- function(t) {
+  m <- matrix(t)
+  dim(m) <- dim(t)
+  dimnames(m) <- dimnames(t)
+  m <- rbind(m, colSums(m))
+  m <- cbind(m, rowSums(m))
+  dimnames(m)[[1]][nrow(m)] <- "Total"
+  dimnames(m)[[2]][ncol(m)] <- "Total"
+  names(dimnames(m)) <- names(dimnames(t))
+return(m)
+}
+
+pct.mar.tab <- function(t, d=1) {
+  m <- matrix(t)
+  dim(m) <- dim(t)
+  dimnames(m) <- dimnames(t)
+  names(dimnames(m)) <- names(dimnames(t))
+  m <- round(100*prop.table(m, d))
+  return(m)
+}
+
+kable.tab <- function(t, ...) {
+  h <- c(1, ncol(t))
+  names(h) <- names(dimnames(t))
+  kable(t, format="latex", booktab=TRUE, ...)  %>%
+    add_header_above(h)
+}
+
+dodge <- position_dodge(width=0.9)
+```
+
+# Introduction
+
+## Michael's to-do list
+
+## Statistical Description
+
+Key statistical ideas in this analysis ---
+
+
+
+
+# Get Data 
+
+
+```{r}
+dir(here("Round 1/PCal Datasets/"), recursive=TRUE)
+
+dir(here("Round 1/PCal Datasets/PeakData/"))
+```
+
+Start with the pup calls (vocalizations).
+
+```{r}
+
+## Read the two files
+pcal1_PMP_peak_pc <-  read_csv(here("Round 1/PCal Datasets/PeakData/PMP_PupCall_SingleTrialPeaks.csv"))
+pcal2_PMP_peak_pc <-  read_csv(here("Round 2/DataForStats/PMP_PupCall_SingleTrialPeaks.csv"))
+
+## Compute mean absolute difference
+mean(abs(pcal1_PMP_peak_pc$PeakAmp - pcal2_PMP_peak_pc$PeakAmp), na.rm=TRUE)
+
+## Cmpute RMSD
+sqrt(sum((pcal1_PMP_peak_pc$PeakAmp - pcal2_PMP_peak_pc$PeakAmp)^2, na.rm=TRUE)/sum(!is.na(pcal1_PMP_peak_pc$PeakAmp)))
+
+pcal1_VMP_peak_pc <-  read_csv(here("Round 1/PCal Datasets/PeakData/VMP_PupCall_SingleTrialPeaks.csv"))
+pcal2_VMP_peak_pc <-  read_csv(here("Round 2/DataForStats/VMP_PupCall_SingleTrialPeaks.csv"))
+
+## Compute mean absolute difference
+mean(abs(pcal1_VMP_peak_pc$PeakAmp - pcal2_VMP_peak_pc$PeakAmp), na.rm=TRUE)
+
+## Cmpute RMSD
+sqrt(sum((pcal1_VMP_peak_pc$PeakAmp - pcal2_VMP_peak_pc$PeakAmp)^2, na.rm=TRUE)/sum(!is.na(pcal1_VMP_peak_pc$PeakAmp)))
+
+```
+
+
+```{r}
+pcal_PMP_peak_pc <-  read_csv(here("Round 1/PCal Datasets/PeakData/PMP_PupCall_SingleTrialPeaks.csv"))
+glimpse(pcal_PMP_peak_pc)
+with(pcal_PMP_peak_pc, table(Animal, Layer))
+table(pcal_PMP_peak_pc$OrderofCall)
+table(pcal_PMP_peak_pc$Group)
+
+pcal_VMP_peak_pc <-  read_csv(here("Round 1/PCal Datasets/PeakData/VMP_PupCall_SingleTrialPeaks.csv"))
+glimpse(pcal_VMP_peak_pc)
+with(pcal_VMP_peak_pc, table(Animal, Layer))
+table(pcal_VMP_peak_pc$OrderofCall)
+table(pcal_VMP_peak_pc$Group)
+
+pcal1_peak_pc <- 
+  bind_rows(pcal_PMP_peak_pc, pcal_VMP_peak_pc) %>%
+  mutate(Group = factor(if_else(Group == "PMP", "Fathers", "Virgins"),
+                        levels=c("Virgins", "Fathers")),
+         Call = ordered(OrderofCall))
+
+```
+
+
+```{r}
+pcal_PMP_peak_pc <-  read_csv(here("Round 2/DataForStats/PMP_PupCall_SingleTrialPeaks.csv"))
+glimpse(pcal_PMP_peak_pc)
+with(pcal_PMP_peak_pc, table(Animal, Layer))
+table(pcal_PMP_peak_pc$OrderofCall)
+table(pcal_PMP_peak_pc$Group)
+
+pcal_VMP_peak_pc <-  read_csv(here("Round 2/DataForStats/VMP_PupCall_SingleTrialPeaks.csv"))
+glimpse(pcal_VMP_peak_pc)
+with(pcal_VMP_peak_pc, table(Animal, Layer))
+table(pcal_VMP_peak_pc$OrderofCall)
+table(pcal_VMP_peak_pc$Group)
+
+pcal2_peak_pc <- 
+  bind_rows(pcal_PMP_peak_pc, pcal_VMP_peak_pc) %>%
+  mutate(Group = factor(if_else(Group == "PMP", "Fathers", "Virgins"),
+                        levels=c("Virgins", "Fathers")),
+         Call = ordered(OrderofCall))
+pcal_peak_pc <- pcal2_peak_pc
+
+```
+
+```{r}
+str(pcal1_peak_pc)
+str(pcal2_peak_pc)
+
+glimpse(pcal1_peak_pc)
+glimpse(pcal2_peak_pc)
+
+pmp01_1 <- pcal1_peak_pc %>%
+  filter(#Animal == "PMP01" &
+           Call %in% c(1, 18, 30, 44, 60)) %>%
+  group_by(Layer, Call) %>%
+  summarise(meanPeakAmp = mean(PeakAmp),
+            .groups = "drop_last")
+
+pmp01_2 <- pcal2_peak_pc %>%
+  filter(#Animal == "PMP01" &
+           Call %in% c(1, 18, 30, 44, 60)) %>%
+  group_by(Layer, Call) %>%
+  summarise(meanPeakAmp = mean(PeakAmp),
+            .groups = "drop_last")
+
+peak_means <- 
+  left_join(pmp01_1, pmp01_2, by=c("Layer", "Call"),
+            suffix=c(".r1", ".r2")) %>%
+  mutate(diff = meanPeakAmp.r1 - meanPeakAmp.r2)
+
+gt(peak_means) %>%
+  fmt_number(decimals = 4)
+```
+
+
+Now the 5 Hz clicks.
+
+```{r}
+pcal_PMP_peak_ct <-
+  read_csv(here("Round 2/DataForStats/PMP_5HzClickTrain_SingleTrialPeaks.csv"))
+glimpse(pcal_PMP_peak_ct)
+with(pcal_PMP_peak_ct, table(Animal, Layer))
+table(pcal_PMP_peak_ct$OrderofClick)
+table(pcal_PMP_peak_ct$Group)
+
+pcal_VMP_peak_ct <-
+  read_csv(here("Round 2/DataForStats/VMP_5HzClickTrain_SingleTrialPeaks.csv"))
+glimpse(pcal_VMP_peak_ct)
+with(pcal_VMP_peak_ct, table(Animal, Layer))
+table(pcal_VMP_peak_ct$OrderofClick)
+table(pcal_VMP_peak_ct$Group)
+
+pcal_peak_ct <- 
+  bind_rows(pcal_PMP_peak_ct, pcal_VMP_peak_ct) %>%
+  mutate(Group = factor(if_else(Group == "PMP", "Fathers", "Virgins"),
+                        levels=c("Virgins", "Fathers")),
+         Click = ordered(OrderofClick))
+
+```
+
+
+
+# Figure 2E (was 4E) Analysis
+
+## Using Linear Mixed Effects Models
+
+Do the analysis with the raw PeakAmp values to check for heteroscedasticity.
+
+```{r}
+
+l_all_pc_peak_raw_lmer <-
+  lmer(PeakAmp ~ Layer * Call * Group + Age + (1 | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer != "All" & Call %in% c(1, 18, 30, 44, 60)),
+       REML=TRUE)
+print(anova(l_all_pc_peak_raw_lmer))
+plot(l_all_pc_peak_raw_lmer)
+# summary(l_all_rest)
+```
+
+Perform it again on the log(`PeakAmp`) values.
+
+```{r}
+l_all_pc_peak_lmer <-
+  lmer(log(PeakAmp) ~ Layer * Call * Group + Age + (1 | Animal), 
+       data=pcal_peak_pc, 
+       subset=(Layer != "All" & Call %in% c(1, 18, 30, 44, 60)),
+       REML=TRUE)
+icc(l_all_pc_peak_lmer)
+print(anova(l_all_pc_peak_lmer))
+plot(l_all_pc_peak_lmer)
+
+# summary(l_all_pc_peak_lmer)
+VarCorr(l_all_pc_peak_lmer)
+summary(rePCA(l_all_pc_peak_lmer))
+
+```
+
+Reviewer #4 requests that analyses be carried out at the individual animal level.  In these analyses, we follow the recommendation of Gelman and Hill (2007)^[Gelman, A., & Hill, J. (2007). _Data analysis using regression and multilevel/hierarchical models._ Cambridge University Press.] by using multilevel regression as a way to take into account the nested nature of the data within each mouse.  They characterize the multilevel approach as partial pooling, weighting the estimates based on the variance within and between the results from each mouse.   Additionally, we use Satterthwaite's (1946)^[Satterthwaite, F. E. (1946). _An approximate distribution of estimates of variance components._ Biometrics Bulletin, 2(6), 110–114. https://doi.org/10.2307/3002019] well known approximation for the denominator degrees of freedom in these and in subsequent $F$ tests.
+
+### Illustrate Why Age & Group are problematic
+
+```{r}
+
+
+avg_dat <- pcal_peak_pc %>%
+  filter(Layer == "All") %>%
+  summarise(meanPeak = mean(PeakAmp, na.rm = TRUE),
+            .by=c("Group", "Animal", "Age")) %>%
+  mutate(zAge = scale(Age), zGroup = scale(as.numeric(Group)))
+
+ggplot(avg_dat, aes(x=Group, y=Age)) +
+  geom_boxplot(outlier.shape = NA, width=.5) +
+  geom_jitter(width=.1, alpha = .5)
+
+```
+
+
+
+### `Group` Differences within each `Call` and `Layer`
+
+This computes and tests the `Group` difference interaction at each level of `Call` and `Layer`.  It indicates whether the difference between peak call power and resting power is significantly different for virgins vs. fathers.
+
+```{r}
+l_all_pc_peak_emm <- 
+  emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call:Layer) # , lmerTest.limit = 16093)
+
+l_all_pc_peak_emm_sum <- summary(l_all_pc_peak_emm, by = "Call", adjust = "fdr")
+l_all_pc_peak_emm_sum$contrasts
+
+l_all_pc_peak_ef <- 
+  eff_size(l_all_pc_peak_emm, sigma=sigma(l_all_pc_peak_lmer),
+           edf=df.residual(l_all_pc_peak_lmer))
+l_all_pc_peak_ef
+
+write_csv(left_join(as_tibble(l_all_pc_peak_emm_sum$contrasts),
+          mutate(as_tibble(l_all_pc_peak_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Call, Layer),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-pmp-vmp-contr-effsize.csv"))
+
+### Average across layers
+# emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call,
+#         p.adjust="hochberg")$contrasts
+
+l_all_pc_peak_m_emm <- 
+  emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call)
+l_all_pc_peak_m_emm$contrasts
+summary(l_all_pc_peak_m_emm$contrasts, by=NULL, adjust="fdr")
+
+l_all_pc_peak_m_ef <- 
+  eff_size(l_all_pc_peak_m_emm, sigma=sigma(l_all_pc_peak_lmer),
+           edf=df.residual(l_all_pc_peak_lmer))
+l_all_pc_peak_m_ef
+
+write_csv(left_join(as_tibble(l_all_pc_peak_m_emm$contrasts),
+          mutate(as_tibble(l_all_pc_peak_m_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Call),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-m-pmp-vmp-contr-effsize.csv"))
+
+## AVREC
+l_all_pc_peak_avrec_lmer <-
+  lmer(log(PeakAmp) ~ Call * Group + Age + (1 + Group | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer == "All" & Call %in% c(1, 18, 30, 44, 60)),
+       REML=TRUE)
+print(anova(l_all_pc_peak_avrec_lmer))
+plot(l_all_pc_peak_avrec_lmer)
+
+l_all_pc_peak_avrec_emm <- 
+  emmeans(l_all_pc_peak_avrec_lmer, pairwise ~ Group | Call)
+l_all_pc_peak_avrec_emm$contrasts
+summary(l_all_pc_peak_avrec_emm$contrasts, by=NULL, adjust="fdr")
+
+l_all_pc_peak_avrec_ef <- 
+  eff_size(l_all_pc_peak_avrec_emm, sigma=sigma(l_all_pc_peak_avrec_lmer),
+           edf=df.residual(l_all_pc_peak_avrec_lmer))
+l_all_pc_peak_avrec_ef
+
+write_csv(left_join(as_tibble(l_all_pc_peak_avrec_emm$contrasts),
+          mutate(as_tibble(l_all_pc_peak_avrec_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Call),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-avrec-pmp-vmp-contr-effsize.csv"))
+
+# l_all_ct_rest_int <- 
+#   emmeans(l_all_ct_rest_l, ~ Group:Condition | Freq:Layer,
+#           p.adjust="hochberg")
+# contrast(l_all_ct_rest_int, interaction=TRUE, method="pairwise")
+```
+
+Plot layer by layer plus marginal
+
+```{r}
+l_all_pc_peak_emm <- 
+  emmeans(l_all_pc_peak_lmer, specs=c("Layer", "Call", "Group"))
+
+l_marg_pc_peak_emm <-
+  emmeans(l_all_pc_peak_avrec_lmer, specs=c("Call", "Group"))
+
+l_all_pc_peak_t <- 
+  bind_rows(as_tibble(l_all_pc_peak_emm),
+          as_tibble(l_marg_pc_peak_emm)) %>%
+  mutate(Layer = fct_expand(Layer, "AVREC", after=0)) %>%
+  replace_na(list(Layer = "AVREC"))
+  
+l_all_pc_peak_t %>%
+  arrange(Layer, Call, Group) %>%
+  ## rename(`exp(emmean)` = response) %>%
+  kable(digits=4, booktabs=TRUE, longtable=TRUE,
+        caption="Means and 95\\% CIs to use for figures") %>%
+  kable_styling(full_width=FALSE)
+
+l_all_pc_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Call, y=emmean, group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=asymp.LCL, ymax=asymp.UCL), 
+                width=0.5, position=dodge) +
+  ## scale_color_viridis_d(option="G") +
+  ## scale_fill_viridis_d(option="G") +
+  facet_wrap("Layer") +
+  ggtitle("Log Power Values")
+
+l_all_pc_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Call, y=exp(emmean), group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=exp(asymp.LCL), ymax=exp(asymp.UCL)), 
+                width=0.5, position=dodge) +
+  facet_wrap("Layer") +
+  ggtitle("Exponentiated Log (Raw Scale) Power Values (95% CIs)")
+
+```
+
+## Computing Mean for Each Condition for Each Animal
+
+```{r}
+pcal_peak_pc_avg <- pcal_peak_pc %>%
+  filter(Call %in% c(1, 18, 30, 44, 60)) %>%
+  summarise(meanPeakAmp = mean(PeakAmp, na.rm=TRUE),
+            meanLogPeakAmp = mean(log(PeakAmp), na.rm=TRUE),
+            .by=c(Animal, Age, Group, Layer, Call)) %>%
+  mutate(cAge = Age - mean(Age))
+str(pcal_peak_pc_avg)
+
+pcal_peak_pc_avg_All <- pcal_peak_pc_avg %>%
+  filter(Layer == "All")
+pcal_peak_pc_avg_All_w <- pcal_peak_pc_avg_All %>%
+  select(-meanPeakAmp, Age) %>%
+  pivot_wider(names_from = c(Layer, Call), 
+              values_from = meanLogPeakAmp)
+
+pcal_peak_pc_avg_Layer <- pcal_peak_pc_avg %>%
+  filter(Layer != "All")
+pcal_peak_pc_avg_Layer_w <- pcal_peak_pc_avg_Layer %>%
+  select(-meanPeakAmp, Age) %>%
+  pivot_wider(names_from = c(Layer, Call), 
+              values_from = meanLogPeakAmp) %>%
+  mutate(cAge = Age - mean(Age))
+
+```
+
+
+```{r, eval=FALSE, include=FALSE}
+
+### Using Multivariate Repeated Measures ANOVA
+
+l_all_pc_peak_raw_mv <-
+  lm(as.matrix(select(pcal_peak_pc_avg_All_w, All_1:All_60)) ~ 
+       Group + cAge,
+     data = pcal_peak_pc_avg_All_w)
+idata <- data.frame(Call=factor(c(1, 18, 30, 44, 60)))
+idata
+
+l_all_pc_peak_raw_Anova <- 
+  car::Anova(l_all_pc_peak_raw_mv, idata=idata,
+             idesign = ~ Call,  type=3)
+summary(l_all_pc_peak_raw_Anova)
+
+
+```
+
+
+### Using afex with aov_4
+
+```{r}
+## Just AVREC
+l_all_pc_peak_ancova <- 
+  aov_4(meanLogPeakAmp ~ Call*Group + cAge + (Call | Animal),
+  data = filter(pcal_peak_pc_avg, Layer == "All"), factorize=FALSE)
+
+anova(l_all_pc_peak_ancova)
+
+l_all_pc_peak_ancova_emm <- 
+  emmeans(l_all_pc_peak_ancova, pairwise ~ Group | Call)
+
+summary(l_all_pc_peak_ancova_emm)$contrasts
+
+## All except AVREC
+
+l_pc_peak_ancova <- 
+  aov_4(meanLogPeakAmp ~ Layer*Call*Group + cAge + (Layer:Call | Animal),
+  data = filter(pcal_peak_pc_avg, Layer != "All"), factorize=FALSE)
+
+anova(l_pc_peak_ancova)
+
+l_pc_peak_ancova_emm <- 
+  emmeans(l_pc_peak_ancova, pairwise ~ Group | Call:Layer)
+
+summary(l_pc_peak_ancova_emm)$contrasts
+```
+
+
+
+# Figure 2F (was 4F) Analysis
+
+For consistency, do the analysis with the raw PeakAmp values to check for heteroscedasticity, but since everything else is done following a $\log$ transofrm, this is mostly superfluous.
+
+```{r}
+l_all_ct_peak_raw_lmer <-
+  lmer(PeakAmp ~ Layer * Click * Group + Age + (1 | Animal),
+       data=pcal_peak_ct, 
+       subset=(Layer != "All" & Click %in% c(1, 5, 10)),
+       REML=TRUE)
+print(anova(l_all_ct_peak_raw_lmer))
+plot(l_all_ct_peak_raw_lmer)
+# summary(l_all_rest)
+```
+
+Perform it again on the log(`PeakAmp`) values.
+
+```{r}
+l_all_ct_peak_lmer <-
+  lmer(log(PeakAmp) ~ Layer * Click * Group + Age + (1 | Animal),
+       data=pcal_peak_ct, 
+       subset=(Layer != "All" & Click %in% c(1, 5, 10)),
+       REML=TRUE)
+icc(l_all_ct_peak_lmer)
+print(anova(l_all_ct_peak_lmer))
+plot(l_all_ct_peak_lmer)
+# summary(l_all_rest)
+```
+
+## `Group` Differences within each `Click` and `Layer`
+
+This computes and tests the `Group` difference interaction at each level of `Click` and `Layer`.  It indicates whether the difference between peak call power and resting power is significantly different for virgins vs. fathers.
+
+```{r}
+# emmeans(l_all_ct_peak_lmer, pairwise ~ Group | Click:Layer,
+#         p.adjust="hochberg")$contrasts
+
+l_all_ct_peak_emm <- 
+  emmeans(l_all_ct_peak_lmer, pairwise ~ Group | Click:Layer)
+
+l_all_ct_peak_emm_sum <- summary(l_all_ct_peak_emm, by = "Click", adjust = "fdr")
+l_all_ct_peak_emm_sum$contrasts
+
+
+l_all_ct_peak_ef <- 
+  eff_size(l_all_ct_peak_emm, sigma=sigma(l_all_ct_peak_lmer),
+           edf=df.residual(l_all_ct_peak_lmer))
+l_all_ct_peak_ef
+
+write_csv(left_join(as_tibble(l_all_ct_peak_emm$contrasts),
+          mutate(as_tibble(l_all_ct_peak_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Click, Layer),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-ct-pmp-vmp-contr-effsize.csv"))
+
+
+### Average across layers
+# emmeans(l_all_ct_peak_lmer, pairwise ~ Group | Click,
+#         p.adjust="hochberg")$contrasts
+
+l_all_ct_peak_m_emm <- 
+  emmeans(l_all_ct_peak_lmer, pairwise ~ Group | Click)
+l_all_ct_peak_m_emm$contrasts
+summary(l_all_ct_peak_m_emm$contrasts, by=NULL, adjust="fdr")
+
+
+
+l_all_ct_peak_m_ef <- 
+  eff_size(l_all_ct_peak_m_emm, sigma=sigma(l_all_ct_peak_lmer),
+           edf=df.residual(l_all_ct_peak_lmer))
+l_all_ct_peak_m_ef
+
+write_csv(left_join(as_tibble(l_all_ct_peak_m_emm$contrasts),
+          mutate(as_tibble(l_all_ct_peak_m_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Click),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-ct-m-pmp-vmp-contr-effsize.csv"))
+
+
+# l_all_ct_rest_int <- 
+#   emmeans(l_all_ct_rest_l, ~ Group:Condition | Freq:Layer,
+#           p.adjust="hochberg")
+# contrast(l_all_ct_rest_int, interaction=TRUE, method="pairwise")
+
+## AVREC
+
+l_all_ct_peak_avrec_lmer <-
+  lmer(log(PeakAmp) ~ Click * Group + Age + (1 | Animal),
+       data=pcal_peak_ct, 
+       subset=(Layer == "All" & Click %in% c(1, 5, 10)),
+       REML=TRUE)
+icc(l_all_ct_peak_avrec_lmer)
+print(anova(l_all_ct_peak_avrec_lmer))
+plot(l_all_ct_peak_avrec_lmer)
+
+l_all_ct_peak_avrec_emm <- 
+  emmeans(l_all_ct_peak_avrec_lmer, pairwise ~ Group | Click)
+l_all_ct_peak_avrec_emm$contrasts
+summary(l_all_ct_peak_avrec_emm$contrasts, by=NULL, adjust="fdr")
+
+l_all_ct_peak_avrec_ef <- 
+  eff_size(l_all_ct_peak_avrec_emm, sigma=sigma(l_all_ct_peak_avrec_lmer),
+           edf=df.residual(l_all_ct_peak_avrec_lmer))
+l_all_ct_peak_avrec_ef
+
+write_csv(left_join(as_tibble(l_all_ct_peak_avrec_emm$contrasts),
+          mutate(as_tibble(l_all_ct_peak_avrec_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Click),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-ct-avrec-pmp-vmp-contr-effsize.csv"))
+
+```
+
+Plot layer by layer plus marginal
+
+```{r}
+l_all_ct_peak_emm <- 
+  emmeans(l_all_ct_peak_lmer, specs=c("Layer", "Click", "Group"))
+
+l_marg_ct_peak_emm <-
+  emmeans(l_all_ct_peak_avrec_lmer, specs=c("Click", "Group")) 
+
+l_marg_ct_peak_t <- l_marg_ct_peak_emm %>%
+  as_tibble() %>%
+  rename(asymp.LCL = "lower.CL",
+         asymp.UCL = "upper.CL")
+
+l_all_ct_peak_t <- 
+  bind_rows(as_tibble(l_all_ct_peak_emm),
+          l_marg_ct_peak_t) %>%
+  mutate(Layer = fct_expand(Layer, "AVREC", after=0)) %>%
+  replace_na(list(Layer = "AVREC"))
+  
+l_all_ct_peak_t %>%
+  arrange(Layer, Click, Group) %>%
+  mutate(`exp(emmean)` = exp(emmean)) %>%
+  kable(digits=4, booktabs=TRUE, longtable=TRUE,
+        caption="Means and 95\\% CIs to use for figures") %>%
+  kable_styling(full_width=FALSE)
+
+l_all_ct_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Click, y=emmean, group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=asymp.LCL, ymax=asymp.UCL), 
+                width=0.5, position=dodge) +
+  ## scale_color_viridis_d(option="G") +
+  ## scale_fill_viridis_d(option="G") +
+  facet_wrap("Layer") +
+  ggtitle("Log Power Values")
+
+l_all_ct_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Click, y=exp(emmean), group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=exp(asymp.LCL), ymax=exp(asymp.UCL)), 
+                width=0.5, position=dodge) +
+  facet_wrap("Layer") +
+  ggtitle("Exponentiated Log (Raw Scale) Power Values (95% CIs)")
+
+```
+
+
+# Figure 3C (was 5C) Analysis
+
+Create a "Volume" Factor
+
+```{r}
+pcal_peak_pc <- pcal_peak_pc %>%
+  mutate(Volume=case_when(Call %in% c(18, 48, 45, 49, 53) ~ "Loud",
+                          Call %in% c(7, 30, 16, 31, 57) ~ "Quiet",
+                          TRUE ~ NA))
+         
+```
+
+## Loud Calls
+
+Examine the log(`PeakAmp`) values.
+
+```{r}
+l_loud_pc_peak_lmer <-
+  lmer(log(PeakAmp) ~ Layer * Call * Group + Age + (1 | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer %in% c("II", "IV") & !is.na(Volume) & Volume == "Loud"),
+       REML=TRUE)
+print(anova(l_loud_pc_peak_lmer))
+plot(l_loud_pc_peak_lmer)
+# summary(l_all_rest)
+```
+
+### `Group` Differences within each `Call` and `Layer`
+
+This computes and tests the `Group` difference interaction at each level of `Call` and `Layer`.  It indicates whether the difference between peak call power and resting power is significantly different for virgins vs. fathers.
+
+```{r}
+# emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call:Layer,
+#         p.adjust="hochberg")$contrasts
+
+l_loud_pc_peak_emm <- 
+  emmeans(l_loud_pc_peak_lmer, pairwise ~ Group | Call:Layer)
+l_loud_pc_peak_emm_sum <- summary(l_loud_pc_peak_emm, by = "Call", adjust = "fdr")
+l_loud_pc_peak_emm_sum$contrasts
+
+l_loud_pc_peak_ef <- 
+  eff_size(l_loud_pc_peak_emm, sigma=sigma(l_loud_pc_peak_lmer),
+           edf=df.residual(l_loud_pc_peak_lmer))
+l_loud_pc_peak_ef
+
+write_csv(left_join(as_tibble(l_loud_pc_peak_emm$contrasts),
+          mutate(as_tibble(l_loud_pc_peak_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Call, Layer),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-loud-pmp-vmp-contr-effsize.csv"))
+```
+
+Plot layer by layer 
+
+```{r}
+l_loud_pc_peak_emm <- 
+  emmeans(l_loud_pc_peak_lmer, specs=c("Layer", "Call", "Group"))
+  
+as_tibble(l_loud_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(18, 48, 45, 49, 53))) %>%
+  arrange(Layer, Call_f, Group) %>%
+  mutate(`exp(emmean)` = exp(emmean)) %>%
+  kable(digits=4, booktabs=TRUE, longtable=TRUE,
+        caption="Means and 95\\% CIs to use for figures") %>%
+  kable_styling(full_width=FALSE)
+
+as_tibble(l_loud_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(18, 48, 45, 49, 53))) %>%
+  ggplot(aes(x=Call_f, y=emmean, group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=asymp.LCL, ymax=asymp.UCL), 
+                width=0.5, position=dodge) +
+  ## scale_color_viridis_d(option="G") +
+  ## scale_fill_viridis_d(option="G") +
+  facet_wrap("Layer") +
+  ggtitle("Log Power Values")
+
+as_tibble(l_loud_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(18, 48, 45, 49, 53))) %>%
+  ggplot(aes(x=Call, y=exp(emmean), group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=exp(asymp.LCL), ymax=exp(asymp.UCL)), 
+                width=0.5, position=dodge) +
+  facet_wrap("Layer") +
+  ggtitle("Exponentiated Log (Raw Scale) Power Values (95% CIs)")
+
+```
+
+
+## Quiet Calls
+
+Examine the log(`PeakAmp`) values.
+
+```{r}
+l_quiet_pc_peak_lmer <-
+  lmer(log(PeakAmp) ~ Layer * Call * Group + Age + (1 | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer %in% c("II", "IV") & !is.na(Volume) & Volume == "Quiet"),
+       REML=TRUE)
+icc(l_quiet_pc_peak_lmer)
+print(anova(l_quiet_pc_peak_lmer))
+plot(l_quiet_pc_peak_lmer)
+# summary(l_all_rest)
+```
+
+### `Group` Differences within each `Call` and `Layer`
+
+This computes and tests the `Group` difference interaction at each level of `Call` and `Layer`.  It indicates whether the difference between peak call power and resting power is significantly different for virgins vs. fathers.
+
+```{r}
+# emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call:Layer,
+#         p.adjust="hochberg")$contrasts
+
+l_quiet_pc_peak_emm <- 
+  emmeans(l_quiet_pc_peak_lmer, pairwise ~ Group | Call:Layer)
+l_quiet_pc_peak_emm_sum <- summary(l_quiet_pc_peak_emm, by = "Call", adjust = "fdr")
+
+l_quiet_pc_peak_emm_sum$contrasts
+
+l_quiet_pc_peak_ef <- 
+  eff_size(l_quiet_pc_peak_emm, sigma=sigma(l_quiet_pc_peak_lmer),
+           edf=df.residual(l_quiet_pc_peak_lmer))
+l_quiet_pc_peak_ef
+
+write_csv(left_join(as_tibble(l_quiet_pc_peak_emm$contrasts),
+          mutate(as_tibble(l_quiet_pc_peak_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Call, Layer),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-quiet-pmp-vmp-contr-effsize.csv"))
+```
+
+Plot layer by layer 
+
+```{r}
+l_quiet_pc_peak_emm <- 
+  emmeans(l_quiet_pc_peak_lmer, specs=c("Layer", "Call", "Group"))
+  
+as_tibble(l_quiet_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(7, 30, 16, 31, 57))) %>%
+  arrange(Layer, Call_f, Group) %>%
+  mutate(`exp(emmean)` = exp(emmean)) %>%
+  kable(digits=4, booktabs=TRUE, longtable=TRUE,
+        caption="Means and 95\\% CIs to use for figures") %>%
+  kable_styling(full_width=FALSE)
+
+as_tibble(l_quiet_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(7, 30, 16, 31, 57))) %>%
+  ggplot(aes(x=Call_f, y=emmean, group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=asymp.LCL, ymax=asymp.UCL), 
+                width=0.5, position=dodge) +
+  ## scale_color_viridis_d(option="G") +
+  ## scale_fill_viridis_d(option="G") +
+  facet_wrap("Layer") +
+  ggtitle("Log Power Values")
+
+as_tibble(l_quiet_pc_peak_emm) %>%
+  mutate(Call_f = factor(Call, levels=c(18, 48, 45, 49, 53))) %>%
+  ggplot(aes(x=Call, y=exp(emmean), group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=exp(asymp.LCL), ymax=exp(asymp.UCL)), 
+                width=0.5, position=dodge) +
+  facet_wrap("Layer") +
+  ggtitle("Exponentiated Log (Raw Scale) Power Values (95% CIs)")
+
+```
+
+
+# **Incorrect** Figure 5D Analysis
+
+I realized belatedly that the analysis below is completely different from what is given in the paper.  Here is what the paper says ---
+
+> Fathers’ peak amplitude responses were normalized to (i.e. divided by) the corresponding mean virgin response and pooled across all loud and quiet calls respectively for the AVREC and layer traces (top to bottom, left to right). The group means across loud and quiet calls were compared between fathers and virgins, and the normalized father group means were compared across loud and quiet calls with Student’s $t$ tests . . . . 
+
+I don't know how the normalization was computed, so I can revisit this and I can do Figure 5E if it seems important.  I'll add that the tests that appear to have been done may not have been quite right depending upon the effect of the normalization.
+
+Examine the log(`PeakAmp`) values --- excluding `All` rows.
+
+```{r}
+l_lq_pc_peak_lmer <-
+  lmer(log(PeakAmp) ~ Layer * Volume * Group + (1 | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer != "All" & !is.na(Volume)),
+       REML=TRUE)
+print(anova(l_lq_pc_peak_lmer))
+plot(l_lq_pc_peak_lmer)
+# summary(l_all_rest)
+```
+
+All layers togetrher using `All` rows.
+
+```{r}
+l_lq_avg_pc_peak_lmer <-
+  lmer(log(PeakAmp) ~ Volume * Group + (1 | Animal),
+       data=pcal_peak_pc, 
+       subset=(Layer == "All" & !is.na(Volume)),
+       REML=TRUE)
+print(anova(l_lq_avg_pc_peak_lmer))
+plot(l_lq_avg_pc_peak_lmer)
+# summary(l_all_rest)
+```
+
+
+## `Group` Differences within each `Volume` and `Layer`
+
+This computes and tests the `Group` difference interaction at each level of `Volume` and `Layer`.  It indicates whether the difference between peak call power and resting power is significantly different for virgins vs. fathers.
+
+```{r}
+# emmeans(l_all_pc_peak_lmer, pairwise ~ Group | Call:Layer,
+#         p.adjust="hochberg")$contrasts
+
+l_lq_pc_peak_emm <- 
+  emmeans(l_lq_pc_peak_lmer, pairwise ~ Group | Volume:Layer, p.adjust="hochberg")
+l_lq_pc_peak_emm$contrasts
+
+l_lq_pc_peak_ef <- 
+  eff_size(l_lq_pc_peak_emm, sigma=sigma(l_lq_pc_peak_lmer),
+           edf=df.residual(l_lq_pc_peak_lmer))
+l_lq_pc_peak_ef
+
+write_csv(left_join(as_tibble(l_lq_pc_peak_emm$contrasts),
+          mutate(as_tibble(l_lq_pc_peak_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Volume, Layer),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-lq-pmp-vmp-contr-effsize.csv"))
+
+## Averaging over Layers
+
+l_lq_pc_peak_m_emm <- 
+  emmeans(l_lq_pc_peak_lmer, pairwise ~ Group | Volume, p.adjust="hochberg")
+l_lq_pc_peak_m_emm$contrasts
+
+l_lq_pc_peak_m_ef <- 
+  eff_size(l_lq_pc_peak_m_emm, sigma=sigma(l_lq_pc_peak_lmer),
+           edf=df.residual(l_lq_pc_peak_lmer))
+l_lq_pc_peak_m_ef
+
+write_csv(left_join(as_tibble(l_lq_pc_peak_m_emm$contrasts),
+          mutate(as_tibble(l_lq_pc_peak_m_ef),
+                 contrast = str_remove_all(contrast, '[()]')),
+          by = join_by(contrast, Volume),
+          suffix=c(".contr", ".eff_size")),
+          here("Round 2/PCal-output/peak-pc-m-lq-pmp-vmp-contr-effsize.csv"))
+
+```
+
+
+Plot layer by layer plus marginal
+
+```{r}
+l_all_lq_pc_peak_emm <- 
+  emmeans(l_lq_pc_peak_lmer, specs=c("Layer", "Volume", "Group"))
+
+l_marg_lq_pc_peak_emm <- 
+  emmeans(l_lq_pc_peak_lmer, specs=c("Volume", "Group"))
+
+l_all_lq_pc_peak_t <- 
+  bind_rows(as_tibble(l_all_lq_pc_peak_emm),
+          as_tibble(l_marg_lq_pc_peak_emm)) %>%
+  mutate(Layer = fct_expand(Layer, "AVREC", after=0)) %>%
+  replace_na(list(Layer = "AVREC"))
+  
+l_all_lq_pc_peak_t %>%
+  arrange(Layer, Volume, Group) %>%
+  mutate(`exp(emmean)` = exp(emmean)) %>%
+  kable(digits=4, booktabs=TRUE, longtable=TRUE,
+        caption="Means and 95\\% CIs to use for figures") %>%
+  kable_styling(full_width=FALSE)
+
+l_all_lq_pc_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Volume, y=emmean, group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=asymp.LCL, ymax=asymp.UCL), 
+                width=0.5, position=dodge) +
+  ## scale_color_viridis_d(option="G") +
+  ## scale_fill_viridis_d(option="G") +
+  facet_wrap("Layer") +
+  ggtitle("Log Power Values")
+
+l_all_lq_pc_peak_t %>%
+  as_tibble() %>%
+  ## filter(Freq != "delta") %>%
+  ggplot(aes(x=Volume, y=exp(emmean), group=Group, color=Group, fill=Group)) +
+  geom_bar(stat="identity", position=dodge) +
+  geom_errorbar(aes(ymin=exp(asymp.LCL), ymax=exp(asymp.UCL)), 
+                width=0.5, position=dodge) +
+  facet_wrap("Layer") +
+  ggtitle("Exponentiated Log (Raw Scale) Power Values (95% CIs)")
+
+```

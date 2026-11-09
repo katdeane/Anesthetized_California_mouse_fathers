@@ -7,17 +7,17 @@ bands  = {'Theta' 'Alpha' 'Beta' 'GammaLow' 'GammaHigh'};
 DataTlow = readtable(['VMPandPMP_NoiseBurst_' low '_ITPCmean.csv']);
 DataThigh = readtable(['VMPandPMP_NoiseBurst_' high '_ITPCmean.csv']);
 
-% initiate a huge stats table for the lawls (for the stats) - 3 comparisons
-ITPCstat = table('Size',[(length(layers) * length(bands) * 3) 10],...
-    'VariableTypes',...
-            {'string','string','string','double','double','double','double',...
-            'double','double','double'});
-
-% S = single, A = average
-ITPCstat.Properties.VariableNames = ["Layer", "Osc", "Comp",...
-    "P", "df", "CD","mean1","sd1","mean2","sd2"];
-
-cnt = 1;
+% % initiate a huge stats table for the lawls (for the stats) - 3 comparisons
+% ITPCstat = table('Size',[(length(layers) * length(bands) * 3) 10],...
+%     'VariableTypes',...
+%             {'string','string','string','double','double','double','double',...
+%             'double','double','double'});
+% 
+% % S = single, A = average
+% ITPCstat.Properties.VariableNames = ["Layer", "Osc", "Comp",...
+%     "P", "df", "CD","mean1","sd1","mean2","sd2"];
+% 
+% cnt = 1;
 
 % we want to chunk by layer and then by oscillatory frequency
 for iLay = 1:length(layers)
@@ -89,32 +89,65 @@ for iLay = 1:length(layers)
             [g1errorlow g2errorlow],'LineStyle','none')
         ylim([0 2])
         
-        % now actually get the stats needed:
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(grp1meansh,grp2meansh,1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'HighAmp';
-        cnt = cnt + 1;
+        % % now actually get the stats needed:
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(grp1meansh,grp2meansh,1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'HighAmp';
+        % cnt = cnt + 1;
+        % 
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(grp1meansl,grp2meansl,1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'LowAmp';
+        % cnt = cnt + 1;
+        % 
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(g2meanslownorm,g2meanshighnorm,1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'HighLowParents';
+        % cnt = cnt + 1;
 
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(grp1meansl,grp2meansl,1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'LowAmp';
-        cnt = cnt + 1;
+        % save normalized data tables for R
+        cd(homedir); cd output; cd DataforStatsPMPVMP;
+        if iOsc == 1
+            Lay1T = [Grp1h; Grp1l];
+            Lay1T(:,[5 6 7 8 9]) = [];
+            Lay1T.("volume") = [repmat("High",6,1); repmat("Low",6,1)];
+            Lay1T.([bands{iOsc} '_norm']) = [g1meanshighnorm; g1meanslownorm];
 
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(g2meanslownorm,g2meanshighnorm,1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'HighLowParents';
-        cnt = cnt + 1;
+            Lay2T = [Grp2h; Grp2l];
+            Lay2T(:,[5 6 7 8 9]) = [];
+            Lay2T.("volume") = [repmat("High",8,1); repmat("Low",8,1)];
+            Lay2T.([bands{iOsc} '_norm']) = [g2meanshighnorm; g2meanslownorm];
+        else
+            Lay1T.([bands{iOsc} '_norm']) = [g1meanshighnorm; g1meanslownorm];
+            Lay2T.([bands{iOsc} '_norm']) = [g2meanshighnorm; g2meanslownorm];
+        end
+        
+        if iOsc == 5
+            if iLay == 1
+                grp1T = Lay1T;
+                grp2T = Lay2T;
+            elseif iLay > 1
+                grp1T = [grp1T; Lay1T];
+                grp2T = [grp2T; Lay2T];
+                if iLay == 5
+                    writetable(grp1T,'VMP_ITPC_NoiseBurst_HighLow.csv');
+                    writetable(grp2T,'PMP_ITPC_NoiseBurst_HighLow.csv');
+                end
+            end
+        end
 
     end % spectral bands   
+
+
     set(gcf,'Position',[100 100 1000 900])
     cd(homedir); cd figures;
     if ~exist('ITPCmeanfig','dir')

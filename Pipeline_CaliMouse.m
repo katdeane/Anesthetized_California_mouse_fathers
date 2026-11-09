@@ -3,12 +3,8 @@
 clear; clc;
 
 % set working directory; change for your station
-if exist('F:\CSD_Riverside','dir')
-    cd('F:\CSD_Riverside'); 
-elseif exist('D:\CSD_Riverside','dir')
-    cd('D:\CSD_Riverside'); 
-elseif exist('D:\GitHub\CSD_Riverside', 'dir')
-    cd('D:\GitHub\CSD_Riverside');
+if exist('E:\Anesthetized_California_mouse_fathers','dir')
+    cd('E:\Anesthetized_California_mouse_fathers'); 
 else
     error('add your local repository as shown above')
 end
@@ -18,8 +14,8 @@ set(0, 'DefaultFigureRenderer', 'painters');
 
 % set consistently needed variables
 Groups = {'VMP' 'PMP'}; % 'PMP' 'VMP' virgin male pupcall & parent male pupcall
-% Condition = {'Pupcall30'};
-Condition = {'NoiseBurst' 'Spontaneous' 'Pupcall30' 'PostNoiseBurst' 'ClickTrain' 'gapASSR' 'Chirp'};
+Condition = {'NoiseBurst' 'Pupcall30'};
+% Condition = {'NoiseBurst' 'Spontaneous' 'Pupcall30' 'PostNoiseBurst' 'ClickTrain' 'gapASSR' 'Chirp'};
 cbar = [-0.3 0.3]; % species specific based on experience, color axis
 
 %% Data generation per subject ⊂◉‿◉つ
@@ -72,7 +68,6 @@ end
 
 % to do: some stackedgroup concatonation not working (spont and gapASSR 6
 % ms)
-
 disp('Producing group-averaged traces for each group')
 for iGro = 1:length(Groups)
     for iST = 1:length(Condition)
@@ -85,33 +80,20 @@ end
 
 %% Peak Stats
 
-PCal_NoiseBurstStats(homedir,Groups,20)
-PCal_NoiseBurstStats(homedir,Groups,50)
-PCal_NoiseBurstStats(homedir,Groups,70)
+% PCal_NoiseBurstStats(homedir,Groups,20)
+% PCal_NoiseBurstStats(homedir,Groups,50)
+% PCal_NoiseBurstStats(homedir,Groups,70)
 PCal_NB_HighLowStats(homedir,Groups,20,50)
 
 
-PCal_ClickTrainStats5(homedir,Groups)
+% PCal_ClickTrainStats5(homedir,Groups)
 % PCal_ClickTrainStats40(homedir,Groups)
 
-PCal_PupcallStats(homedir,Groups,[1,18,30,44,60]) % was [1,4,9,13,18]
+% PCal_PupcallStats(homedir,Groups,[1,18,30,44,60]) % was [1,4,9,13,18]
 PCal_HighLowStats(homedir,Groups,[18,48,45,49,53],[7,30,16,31,57]) % determined by findPupCallRMS.m
 
-PCal_PupcallStats_Latency(homedir,Groups,[1,18,30,44,60])
-%% mTF analysis
+% PCal_PupcallStats_Latency(homedir,Groups,[1,18,30,44,60])
 
-% Input:    group metadata file in /groups and curate converted files in
-%           /data that correspond to pup call (30 dB att) measurements
-% Output:   Cross validation, trained model, and predicted data figures for
-%           each subject. Stat data, error and pearson's r for full
-%           multiTRF, low broadband and high broadband TRF models. 
-% Pipeline_mTRF(homedir,Groups)
-
-%% CSD permutation analysis 
-% Condition = {'NoiseBurst' 'Pupcall30' 'ClickTrain'};
-for iSti = 1:length(Condition)
-    PermutationTest_CSDArea(homedir,Condition{iSti},Groups,1,'Anesthetized')
-end
 
 %% CWT analysis 
 
@@ -122,10 +104,10 @@ params.voicesPerOctave = 8;
 params.timeBandWidth = 54;
 params.layers = {'II','IV','Va','Vb','VI'}; 
 params.groups = {'VMP','PMP'}; % for permutation test
-params.condList = {'NoiseBurst'}; % careful, this variable is edited continuously
+params.condList = {'NoiseBurst','Pupcall'}; % careful, this variable is edited continuously
 
 % run permutation clustermass analysis
-yespermute = 1; % 0 just observed pics, 1 observed pics and perumation test
+yespermute = 0; % 0 just observed pics, 1 observed pics and perumation test
 
 % Only run when data regeneration is needed:
 runCwtCsd(homedir,'PMP',params,'Anesthetized');
@@ -135,7 +117,7 @@ runCwtCsd(homedir,'VMP',params,'Anesthetized');
 TimeFreqBackground(homedir,params,Groups)
 
 % diff = second group - first group
-params.condList = {'ClickTrain','gapASSR','NoiseBurst'}; %'ClickTrain','gapASSR'
+params.condList = {'NoiseBurst'}; %'ClickTrain','gapASSR'
 PermutationTest_Area(homedir,'Phase',params,{'PMP' 'VMP'},yespermute,'Anesthetized') 
 
 params.condList = {'Pupcall'}; % needs to be broken down by layers earlier
@@ -147,31 +129,19 @@ delete(gcp('nocreate')) % end this par session
 igetITPCmeanPCal(homedir,{'VMP' 'PMP'},'Phase')
 % now plot and test it 
 ITPCmeanfigsPCal(homedir)
-% stats
-PCal_PupcallStatsITPC(homedir,'Pupcall_1',[1, 18, 30, 44, 60])
+% data out for stats
 PCal_Pupcall_HighLowStatsITPC(homedir,[18,48,45,49,53],[7,30,16,31,57])
-PCal_PupcallStatsITPC(homedir,'ClickTrain_5',[1, 5, 10])
-PCal_PupcallStatsITPC(homedir,'gapASSR_2',5)
-PCal_PupcallStatsITPC(homedir,'gapASSR_4',5)
-PCal_PupcallStatsITPC(homedir,'gapASSR_6',5)
-PCal_PupcallStatsITPC(homedir,'gapASSR_8',5)
-PCal_PupcallStatsITPC(homedir,'gapASSR_10',5)
-PCal_PupcallStatsITPC(homedir,'NoiseBurst_20',1)
-PCal_PupcallStatsITPC(homedir,'NoiseBurst_50',1)
-PCal_PupcallStatsITPC(homedir,'NoiseBurst_70',1)
 PCal_NoiseBurst_HighLowStatsITPC(homedir,'20','50')
 
 % correlate gap ASSR results with loud and quiet calls and noise
-gapASSRcorr_ITPCmean(homedir,Groups,[18,48,45,49,53],[7,30,16,31,57])
+% gapASSRcorr_ITPCmean(homedir,Groups,[18,48,45,49,53],[7,30,16,31,57])
 
 %% Fast fourier transform of the spontaneous data 
 runFftCsd(homedir,params,'Pupcall')
 % plotFFT(homedir,params,'Pupcall','AB')
-% plotFFT(homedir,params,'Pupcall','RE')
 
 runFftCsd(homedir,params,'Spontaneous')
 % plotFFT(homedir,params,'Spontaneous','AB')
-% plotFFT(homedir,params,'Spontaneous','RE')
 
 runFftCsd(homedir,params,'ClickTrain')
 runFftCsd(homedir,params,'NoiseBurst')
@@ -180,10 +150,6 @@ plotFFT_PCal(homedir,params,'AB','Pupcall') % spont compared to pupcalls
 plotFFT_PCal(homedir,params,'AB','ClickTrain') % spont compared to clicks (CURRENTLY 5 HZ)
 plotFFT_PCal(homedir,params,'AB','NoiseBurst') % spont compared to noisebursts
 % plotFFT_PCal(homedir,params,'RE')
-
-% Analysis of covariance to determine if age or group is predictor
-% AnCoVaFFT_PCal(homedir,params,'AB','ClickTrain')
-% AnCoVaFFT_PCal(homedir,params,'AB','Pupcall')
 
 %% Correlate age with FFT data
 agecorr_FFT(homedir,Groups,'Spontaneous','AB')
@@ -209,3 +175,7 @@ cutPupcallFig(homedir,[1, 18, 30, 44, 60], [1 5 10])
 cutPupcall(homedir,[1, 18, 30, 44, 60])
 % get the high and low figs
 cutPupcallFig(homedir,[18,48,45,49,53,7,30,16,31,57],[])
+
+%% Prep statistics for R
+
+prepDataforStatsPMPVMP(homedir)

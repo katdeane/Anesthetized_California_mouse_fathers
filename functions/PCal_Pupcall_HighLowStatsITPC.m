@@ -6,17 +6,17 @@ bands  = {'Theta' 'Alpha' 'Beta' 'GammaLow' 'GammaHigh'};
 
 DataT = readtable('VMPandPMP_Pupcall_1_ITPCmean.csv');
 
-% initiate a huge stats table for the lawls (for the stats) - 3 comparisons
-ITPCstat = table('Size',[(length(layers) * length(bands) * 3) 10],...
-    'VariableTypes',...
-            {'string','string','string','double','double','double','double',...
-            'double','double','double'});
-
-% S = single, A = average, TH = thalamic, CO = cortical, CN = continue
-ITPCstat.Properties.VariableNames = ["Layer", "Osc", "Comp",...
-    "P", "df", "CD","mean1","sd1","mean2","sd2"];
-
-cnt = 1;
+% % initiate a huge stats table for the lawls (for the stats) - 3 comparisons
+% ITPCstat = table('Size',[(length(layers) * length(bands) * 3) 10],...
+%     'VariableTypes',...
+%             {'string','string','string','double','double','double','double',...
+%             'double','double','double'});
+% 
+% % S = single, A = average, TH = thalamic, CO = cortical, CN = continue
+% ITPCstat.Properties.VariableNames = ["Layer", "Osc", "Comp",...
+%     "P", "df", "CD","mean1","sd1","mean2","sd2"];
+% 
+% cnt = 1;
 
 % we want to chunk by layer and then by oscillatory frequency
 for iLay = 1:length(layers)
@@ -57,11 +57,14 @@ for iLay = 1:length(layers)
         ylim([0 1])
         title([bands{iOsc} ' high amp'])
 
-        % mean the highest amp calls means
+        % mean the highest amp calls means, normalize by virgin mean
         converge_g1meanshigh = mean(g1meanshigh);
         converge_g1errorhigh = std(g1meanshigh)/sqrt(length(grp1means));
         converge_g2meanshigh = mean(g2meanshigh);
         converge_g2errorhigh = std(g2meanshigh)/sqrt(length(grp2means));
+
+        g1meanshighnorm = g1meanshigh / mean(g1meanshigh);
+        g2meanshighnorm = g2meanshigh / mean(g1meanshigh);
 
         nexttile
         bar([converge_g1meanshigh converge_g2meanshigh])
@@ -97,11 +100,14 @@ for iLay = 1:length(layers)
         ylim([0 1])
         title([bands{iOsc} ' low amp'])
 
-        % mean the lowest amp calls means, normalize by virgin mean means lol
-        converge_g1meanslow = mean(g1meanslow); % /mean(g1meanslow)
+        % mean the lowest amp calls means, normalize by virgin mean
+        converge_g1meanslow = mean(g1meanslow); 
         converge_g1errorlow = std(g1meanslow)/sqrt(length(grp1means));
         converge_g2meanslow = mean(g2meanslow);
         converge_g2errorlow = std(g2meanslow)/sqrt(length(grp2means));
+
+        g1meanslownorm = g1meanslow / mean(g1meanslow);
+        g2meanslownorm = g2meanslow / mean(g1meanslow);
 
         nexttile
         bar([converge_g1meanslow converge_g2meanslow])
@@ -110,31 +116,61 @@ for iLay = 1:length(layers)
             [converge_g1errorlow converge_g2errorlow],'LineStyle','none')
         ylim([0 1])
         
-        % now actually get the stats needed:
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(g1meanshigh',g2meanshigh',1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'HighAmp';
-        cnt = cnt + 1;
+        % % now actually get the stats needed:
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(g1meanshigh',g2meanshigh',1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'HighAmp';
+        % cnt = cnt + 1;
+        % 
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(g1meanslow',g2meanslow',1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'LowAmp';
+        % cnt = cnt + 1;
+        % 
+        % [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
+        %     ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
+        %     myttest2(g2meanslow',g2meanshigh',1,'both');
+        % ITPCstat.Layer(cnt)     = layers{iLay};
+        % ITPCstat.Osc(cnt)       = bands{iOsc};
+        % ITPCstat.Comp(cnt)      = 'HighLowParents';
+        % cnt = cnt + 1;
 
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(g1meanslow',g2meanslow',1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'LowAmp';
-        cnt = cnt + 1;
+        % save normalized data tables for R
+        cd(homedir); cd output; cd DataforStatsPMPVMP;
+        if iOsc == 1
+            Lay1T = [Grp1h; Grp1l];
+            Lay1T(:,[5 6 7 8 9]) = [];
+            Lay1T.("volume") = [repmat("High",6,1); repmat("Low",6,1)];
+            Lay1T.([bands{iOsc} '_norm']) = [g1meanshighnorm; g1meanslownorm];
 
-        [ITPCstat.P(cnt),ITPCstat.df(cnt),ITPCstat.CD(cnt),ITPCstat.mean1(cnt),...
-            ITPCstat.sd1(cnt),ITPCstat.mean2(cnt),ITPCstat.sd2(cnt)] = ...
-            myttest2(g2meanslow',g2meanshigh',1,'both');
-        ITPCstat.Layer(cnt)     = layers{iLay};
-        ITPCstat.Osc(cnt)       = bands{iOsc};
-        ITPCstat.Comp(cnt)      = 'HighLowParents';
-        cnt = cnt + 1;
+            Lay2T = [Grp2h; Grp2l];
+            Lay2T(:,[5 6 7 8 9]) = [];
+            Lay2T.("volume") = [repmat("High",8,1); repmat("Low",8,1)];
+            Lay2T.([bands{iOsc} '_norm']) = [g2meanshighnorm; g2meanslownorm];
+        else
+            Lay1T.([bands{iOsc} '_norm']) = [g1meanshighnorm; g1meanslownorm];
+            Lay2T.([bands{iOsc} '_norm']) = [g2meanshighnorm; g2meanslownorm];
+        end
 
+        if iOsc == 5
+            if iLay == 1
+                grp1T = Lay1T;
+                grp2T = Lay2T;
+            elseif iLay > 1
+                grp1T = [grp1T; Lay1T];
+                grp2T = [grp2T; Lay2T];
+                if iLay == 5
+                    writetable(grp1T,'VMP_ITPC_NoiseBurst_HighLow.csv');
+                    writetable(grp2T,'PMP_ITPC_NoiseBurst_HighLow.csv');
+                end
+            end
+        end
     end % spectral bands 
     set(gcf,'Position',[100 100 1000 900])
     cd(homedir); cd figures;
